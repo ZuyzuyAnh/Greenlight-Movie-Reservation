@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/lib/pq"
 	"greenlight.zuyanh.net/internal/entity"
 	"time"
 )
@@ -141,19 +140,20 @@ func (m ReservationModel) Delete(id int64) error {
 
 func (m ReservationModel) GetAll(userId, showId int64, date time.Time, filters Filters) ([]*entity.Reservation, Metadata, error) {
 	query := fmt.Sprintf(`
-		SELECT count(*) OVER(), id, created_at, title, year, runtime, genres, version
-        FROM movies
-        WHERE (to_tsvector('simple', title) @@ plainto_tsquery('simple', $1) OR $1 = '') 
-        AND (genres @> $2 OR $2 = '{}')     
+		SELECT count(*) OVER(), id, created_at, user_id, amount, show_id, status
+        FROM reservations
+        WHERE (created_at::DATE = $1 OR $1 IS NULL) 
+        AND (show_id = $2 OR $2 = 0)
+        AND id = $3
         ORDER BY %s %s, id ASC
-        LIMIT $3 OFFSET $4
+        LIMIT $4 OFFSET $5
 	`, filters.sortColumn(), filters.sortDirection(),
 	)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	args := []interface{}{title, pq.Array(genres), filters.limit(), filters.offset()}
+	args := []interface{}{date, showId, userId, filters.limit(), filters.offset()}
 
 	rows, err := m.DB.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -163,25 +163,24 @@ func (m ReservationModel) GetAll(userId, showId int64, date time.Time, filters F
 
 	totalRecords := 0
 
-	movies := []*entity.Movie{}
+	reservations := []*entity.Reservation{}
 	for rows.Next() {
-		var movie entity.Movie
+		var reservation entity.Reservation
 
 		err := rows.Scan(
 			&totalRecords,
-			&movie.ID,
-			&movie.CreatedAt,
-			&movie.Title,
-			&movie.Year,
-			&movie.Runtime,
-			pq.Array(&movie.Genres),
-			&movie.Version,
+			&reservation.ID,
+			&reservation.CreatedAt,
+			&reservation.UserId,
+			&reservation.Amount,
+			&reservation.ShowId,
+			&reservation.Status,
 		)
 		if err != nil {
 			return nil, Metadata{}, err
 		}
 
-		movies = append(movies, &movie)
+		reservations = append(reservations, &reservation)
 	}
 
 	if err = rows.Err(); err != nil {
@@ -189,5 +188,5 @@ func (m ReservationModel) GetAll(userId, showId int64, date time.Time, filters F
 	}
 
 	metadata := calculateMetadata(totalRecords, filters.Page, filters.PageSize)
-	return movies, metadata, nil
+	return reservations, metadata, nil
 }

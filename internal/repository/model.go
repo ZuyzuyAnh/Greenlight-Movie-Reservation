@@ -28,6 +28,7 @@ type Models struct {
 	Users interface {
 		Insert(user *entity.User) error
 		GetByEmail(email string) (*entity.User, error)
+		GetById(id int64) (*entity.User, error)
 		Update(user *entity.User) error
 		GetForToken(tokenScope, tokenPlaintext string) (*entity.User, error)
 	}
@@ -59,6 +60,7 @@ type Models struct {
 		UpdateStatus(reservationId int64, status string) error
 		GetById(id int64) (*entity.Reservation, error)
 		Delete(id int64) error
+		GetAll(userId, showId int64, date time.Time, filters Filters) ([]*entity.Reservation, Metadata, error)
 	}
 	Show interface {
 		Insert(show *entity.Show) error

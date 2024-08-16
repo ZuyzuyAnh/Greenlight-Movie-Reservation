@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"greenlight.zuyanh.net/internal/entity"
+	"greenlight.zuyanh.net/internal/repository"
+	"greenlight.zuyanh.net/internal/validator"
 	"net/http"
 	"strconv"
 	"time"
@@ -32,7 +34,17 @@ func (app *application) createReservationHandler(w http.ResponseWriter, r *http.
 		return
 	}
 
+	user, err := app.models.Users.GetById(input.UserId)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
 	total, err := app.models.Seat.UpdateSeatStatus(false, input.ShowId, input.SeatIds)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
 
 	reservation := &entity.Reservation{
 		UserId: input.UserId,
@@ -48,8 +60,8 @@ func (app *application) createReservationHandler(w http.ResponseWriter, r *http.
 	}
 
 	param := Params{
-		AppUser:       strconv.FormatInt(input.UserId, 10),
-		ItemPrice:     "10000",
+		AppUser:       user.Email,
+		ItemPrice:     strconv.FormatInt(total, 10),
 		ReservationId: generateTransId(reservation.ID),
 	}
 
@@ -87,6 +99,47 @@ func (app *application) createReservationHandler(w http.ResponseWriter, r *http.
 			}
 		}
 	}(input.SeatIds)
+}
+
+func (app *application) listReservationHandler(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		UserId int64
+		ShowId int64
+		Date   time.Time
+		repository.Filters
+	}
+
+	v := validator.New()
+
+	qs := r.URL.Query()
+
+	input.UserId = int64(app.readInt(qs, "user_id", 0, v))
+	input.ShowId = int64(app.readInt(qs, "show_id", 0, v))
+
+	layout := "2006-01-02"
+	dateStr := app.readString(qs, "created_at", "")
+	input.Date, _ = time.Parse(layout, dateStr)
+
+	input.Filters.Page = app.readInt(qs, "page", 1, v)
+	input.Filters.PageSize = app.readInt(qs, "page_size", 20, v)
+	input.Filters.Sort = app.readString(qs, "sort", "id")
+	input.Filters.SortSafelist = []string{"id", "amount", "user_id", "show_id", "created_at", "status", "-id", "-amount", "-user_id", "-show_id", "-created_at", "-status"}
+
+	if repository.ValidateFilters(v, input.Filters); !v.Valid() {
+		app.failedValidationResponse(w, r, v.Errors)
+		return
+	}
+
+	reservations, metadata, err := app.models.Reservation.GetAll(input.UserId, input.ShowId, input.Date, input.Filters)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	err = app.writeJSON(w, http.StatusOK, envelope{"reservations": reservations, "metadata": metadata}, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
 }
 
 func generateTransId(id int64) string {
