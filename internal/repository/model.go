@@ -13,7 +13,6 @@ var (
 	ErrEditConflict        = errors.New("edit conflict")
 	ErrDuplicateConstraint = errors.New("duplicate constraint")
 	ErrViolatesForeignKey  = errors.New("violates foreign key constraint")
-	ErrInvalidType         = errors.New("invalid type")
 )
 
 type Models struct {
@@ -44,9 +43,14 @@ type Models struct {
 	Theatres interface {
 		Insert(theatres *entity.Theatres) error
 		GetAll(city string, filters Filters) ([]*entity.Theatres, Metadata, error)
+		Update(theatres *entity.Theatres) error
+		Delete(theatreId int64) error
 	}
 	Screen interface {
 		Insert(screen *entity.Screen) error
+		GetAll(theatreId int64, filters Filters) ([]*entity.Screen, Metadata, error)
+		Update(screen *entity.Screen) error
+		Delete(screenId int64) error
 	}
 	Seat interface {
 		Insert(seat *entity.Seat) error

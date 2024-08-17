@@ -46,13 +46,6 @@ func (m ShowModel) Insert(show *entity.Show) error {
 }
 
 func (m ShowModel) GetAll(date string, title string, filters Filters) ([]*entity.Show, Metadata, error) {
-	if date != "" {
-		_, err := time.Parse("2006-01-02", date)
-		if err != nil {
-			return nil, Metadata{}, ErrInvalidType
-		}
-	}
-
 	query := fmt.Sprintf(`
 		SELECT COUNT(*) OVER(), 
                s.id, 
@@ -109,4 +102,11 @@ func (m ShowModel) GetAll(date string, title string, filters Filters) ([]*entity
 func ValidateShow(v *validator.Validator, show *entity.Show) {
 	v.Check(show.MovieId > 0, "movie_id", "must be a positive integer")
 	v.Check(show.ScreenId > 0, "screen_id", "must be a positive integer")
+}
+
+func ValidateDateFormat(v *validator.Validator, date string) {
+	v.Check(date != "", "date", "must be provided")
+
+	_, err := time.Parse("2006-01-02", date)
+	v.Check(err != nil, "date", "date format should be yyyy-mm-dd")
 }

@@ -92,7 +92,9 @@ func (app *application) listShowHandler(w http.ResponseWriter, r *http.Request) 
 	input.Filters.Sort = app.readString(qs, "sort", "id")
 	input.Filters.SortSafelist = []string{"id", "-id", "datetime", "-datetime"}
 
-	if repository.ValidateFilters(v, input.Filters); !v.Valid() {
+	repository.ValidateDateFormat(v, input.Date)
+	repository.ValidateFilters(v, input.Filters)
+	if !v.Valid() {
 		app.failedValidationResponse(w, r, v.Errors)
 		return
 	}

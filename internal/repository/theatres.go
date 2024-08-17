@@ -92,6 +92,54 @@ func (m TheatresModel) GetAll(city string, filters Filters) ([]*entity.Theatres,
 	return theatres, metadata, nil
 }
 
+func (m TheatresModel) Update(theatres *entity.Theatres) error {
+	query := `
+		UPDATE theatres
+		SET name = $1, city = $2
+		WHERE id = $3
+	`
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	args := []interface{}{
+		theatres.Name,
+		theatres.City,
+		theatres.ID,
+	}
+
+	_, err := m.DB.ExecContext(ctx, query, args)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m TheatresModel) Delete(theatreId int64) error {
+	query := `
+		DELETE FROM theatres
+		WHERE id = $1
+	`
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	result, err := m.DB.ExecContext(ctx, query, theatreId)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+
+	if rowsAffected == 0 {
+		return ErrRecordNotFound
+	}
+
+	return nil
+}
+
 func ValidateTheatres(v *validator.Validator, theatres *entity.Theatres) {
 	v.Check(theatres.Name != "", "name", "must be provided")
 	v.Check(len(theatres.Name) < 100, "name", "must not be more than 100 characters")
